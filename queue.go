@@ -1,104 +1,61 @@
-package queue
+package goueue
 
-type Command interface {
-	Handle() error
-}
+import "sync"
 
-func NewWorker(pool chan chan Command) *Worker {
-	return &Worker{
-		pool,
-		make(chan Command),
-		make(chan bool),
-		false,
-	}
-}
-
-type Worker struct {
-	pool    chan chan Command
-	input   chan Command
-	quit    chan bool
-	Running bool
-}
-
-func (w *Worker) Start() {
-	w.Running = true
-	go func() {
-		for {
-			w.pool <- w.input
-			select {
-			case job := <-w.input:
-				err := job.Handle()
-				if err != nil {
-					w.Stop()
-				}
-			case <-w.quit:
-				w.Running = false
-				return
-			}
-		}
-	}()
-}
-
-func (w *Worker) Stop() {
-	go func() {
-		w.quit <- true
-	}()
-}
-
+//Queue implements queue/worker pattern with channels. Uses sync.WaitGroup optionally to wait for all workers to end
 type Queue struct {
-	WorkerCount int
-	Workers     []*Worker
-	Enqueued    int
+	workerCount int
+	workers     []*Worker
 	pool        chan chan Command
 	jobQueue    chan Command
-	doneQueue   chan int
+	wg          sync.WaitGroup
 }
 
-func (q *Queue) Run() {
-	for i := 0; i < q.WorkerCount; i++ {
-		worker := NewWorker(q.pool)
+//Start creates and starts workers (launches a new goroutine)
+func (q *Queue) Start() {
+	for i := 0; i < q.workerCount; i++ {
+		worker := NewWorker(q.pool, &(q.wg))
 		worker.Start()
-		q.Workers[i] = worker
+		q.workers[i] = worker
 	}
 	go func() {
 		for {
 			select {
 			case job := <-q.jobQueue:
-				q.Enqueued++
 				go func(c Command) {
 					workerChan := <-q.pool
 					workerChan <- c
-					q.doneQueue <- 1
 				}(job)
-			case <-q.doneQueue:
-				q.Enqueued--
 			}
 		}
 	}()
 }
 
-func (q *Queue) RunningWorkersCount() int {
-	r := 0
-	for _, w := range q.Workers {
-		if w.Running {
-			r++
-		}
+//Enqueue writes passed command to a channel
+func (q *Queue) Enqueue(command Command) {
+	q.jobQueue <- command
+}
+
+//Wait waits for sync.WaitGroup to deplete
+func (q *Queue) Wait() {
+	q.wg.Wait()
+}
+
+//Stop commands all workers to stop
+func (q *Queue) Stop() {
+	for _, worker := range q.workers {
+		worker.Stop()
 	}
-	return r
 }
 
-func (q *Queue) Enqueue(c Command) {
-	q.jobQueue <- c
-}
-
-func NewQueue(numWorkers int) *Queue {
+//New creates a new Queue object with numWorkers workers
+func New(numWorkers int) *Queue {
 	q := &Queue{
 		pool:        make(chan chan Command),
-		WorkerCount: numWorkers,
+		workerCount: numWorkers,
 		jobQueue:    make(chan Command),
-		doneQueue:   make(chan int),
-		Workers:     make([]*Worker, numWorkers),
-		Enqueued:    0,
+		workers:     make([]*Worker, numWorkers),
+		wg:          sync.WaitGroup{},
 	}
 	return q
 }
