@@ -26,7 +26,7 @@ func main() {
 	q.Start()
 	for i := 0; i < 10000; i++ {
 		q.Enqueue(&task{id: i})
-    }
-    q.Wait()
+    	}
+    	q.Wait()
 }
 ```
