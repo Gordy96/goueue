@@ -7,16 +7,16 @@ package main
 
 import (
 	"fmt"
-
 	"github.com/Gordy96/goueue"
 )
+
 
 type task struct {
 	id	int
 }
 
 func (t *task) Handle() error {
-	fmt.Printf("Task #%d is being handled\n", t.id)
+	fmt.Printf("Task #%d is being handled", t.id)
 	return nil
 }
 
@@ -26,8 +26,7 @@ func main() {
 	q.Start()
 	for i := 0; i < 10000; i++ {
 		q.Enqueue(&task{id: i})
-	}
-	q.Stop()
-	defer q.Wait()
+    	}
+    	q.Wait()
 }
 ```
