@@ -7,16 +7,17 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/Gordy96/goueue"
 )
 
 type task struct {
-	id	int
+	timestamp	int64
 }
 
 func (t *task) Handle() error {
-	fmt.Printf("Task #%d is being handled\n", t.id)
+	fmt.Printf("EPOCH NOW IS: %d\n", t.timestamp)
 	return nil
 }
 
@@ -24,10 +25,15 @@ func main() {
 	numOfWorkerRoutines := 10
 	q := goueue.New(numOfWorkerRoutines)
 	q.Start()
-	for i := 0; i < 10000; i++ {
-		q.Enqueue(&task{id: i})
-	}
-	q.Stop()
-	defer q.Wait()
+	go func ()  {
+		c := time.Tick(50 * time.Millisecond)
+		for range c {
+			q.Enqueue(&task{timestamp: time.Now().Unix()})
+		}
+	}()
+	time.AfterFunc(10*time.Second, func() {
+		q.Stop()
+	})
+	q.Wait()
 }
 ```
