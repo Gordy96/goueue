@@ -33,19 +33,17 @@ func (w *Worker) Start() {
 			case job := <-w.input:
 				err := job.Handle()
 				if err != nil {
-					w.Stop()
+					break
 				}
 			case <-w.quit:
-				w.wg.Done()
-				return
+				break
 			}
 		}
+		w.wg.Done()
 	}()
 }
 
 //Stop notifies worker's own quit-channel
 func (w *Worker) Stop() {
-	go func() {
-		w.quit <- true
-	}()
+	w.quit <- true
 }
